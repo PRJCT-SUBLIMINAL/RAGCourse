@@ -2,6 +2,8 @@ import argparse
 import json
 import string
 
+from nltk.stem import PorterStemmer
+
 translator = str.maketrans("", "", string.punctuation)
 
 def preprocessWords():
@@ -19,6 +21,11 @@ def createTokens(text, stopWords):
 
     tokens = [token for token in tokens if token.strip()]
     tokens = [token for token in tokens if token not in stopWords]
+
+    stemmer = PorterStemmer()
+
+    for i in range(len(tokens)):
+        tokens[i] = stemmer.stem(tokens[i])
 
     return tokens
 
