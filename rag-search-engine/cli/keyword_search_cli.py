@@ -5,6 +5,7 @@ import collections
 import pickle
 import os
 import sys
+import collections
 
 from nltk.stem import PorterStemmer
 
@@ -32,6 +33,12 @@ def createTokens(text):
 
     return [stemmer.stem(token) for token in tokens]
 
+def tokenizeTerm(term):
+    tokens = createTokens(term)
+    if len(tokens) != 1:
+        raise Exception("Term holds more than 1 token")
+    return tokens[0]
+
 def load_movies():
     with open("data/movies.json", "r", encoding="utf-8") as file:
         jsonFile = json.load(file)
@@ -41,14 +48,24 @@ class InvertedIndex:
     def __init__(self):
         self.index = collections.defaultdict(set)
         self.docmap = dict()
+        self.term_frequencies = dict()
     
     def __add_document(self, doc_id, text):
         tokens = createTokens(text)
+        c = collections.Counter()
         for i in range(len(tokens)):
             self.index[tokens[i]].add(doc_id)
+            c[tokens[i]] += 1
+        self.term_frequencies[doc_id] = c
 
     def get_documents(self, term):
         return sorted(list(self.index[term]))
+
+    def get_tf(self, doc_id, term):
+        c = self.term_frequencies.get(doc_id)
+        if c is None:
+            return 0
+        return c[term]
 
     def build(self):
         movies = load_movies()
@@ -62,12 +79,16 @@ class InvertedIndex:
             pickle.dump(self.index, f)
         with open("cache/docmap.pkl", "wb") as f:
             pickle.dump(self.docmap, f)
+        with open("cache/term_frequencies.pkl", "wb") as f:
+            pickle.dump(self.term_frequencies, f)
 
     def load(self):
         with open("cache/index.pkl", "rb") as f:
             self.index = pickle.load(f)
         with open("cache/docmap.pkl", "rb") as f:
             self.docmap = pickle.load(f)
+        with open("cache/term_frequencies.pkl", "rb") as f:
+            self.term_frequencies = pickle.load(f)
 
 index = InvertedIndex()
 
@@ -79,6 +100,10 @@ def main() -> None:
     search_parser.add_argument("query", type=str, help="Search query")
 
     build_parser = subparsers.add_parser("build", help="Build the inverted index")
+
+    tf_parser = subparsers.add_parser("tf", help="Search with a specific term")
+    tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    tf_parser.add_argument("term", type=str, help="The search term")
 
     args = parser.parse_args()
 
@@ -114,9 +139,19 @@ def main() -> None:
         case "build":
             index.build()
             index.save()
+        
+        case "tf":
+            try:
+                index.load()
+            
+            except FileNotFoundError:
+                print("Failed to load index")
+                sys.exit(1)
 
-            # docs = index.get_documents("merida")
-            # print(f"First document for token 'merida' = {docs[0]}")
+            token = tokenizeTerm(args.term)
+
+            result = index.get_tf(args.doc_id, token)
+            print(result)
 
         case _:
             parser.print_help()
