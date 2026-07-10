@@ -93,6 +93,14 @@ class InvertedIndex:
 
 index = InvertedIndex()
 
+def loadIndex():
+    try:
+        index.load()
+            
+    except FileNotFoundError:
+        print("Failed to load index")
+        sys.exit(1)
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -109,17 +117,16 @@ def main() -> None:
     idf_parser = subparsers.add_parser("idf", help="Inverse search term")
     idf_parser.add_argument("term", type=str, help="The search term")
 
+    tfidf_parser = subparsers.add_parser("tfidf", help="Get the relevance score")
+    tfidf_parser.add_argument("doc_id", type=int, help="Document ID")
+    tfidf_parser.add_argument("term", type=str, help="The search term")
+
     args = parser.parse_args()
 
     match args.command:
         case "search":
             print(f'Searching for: {args.query}')
-            try:
-                index.load()
-            
-            except FileNotFoundError:
-                print("Failed to load index")
-                sys.exit(1)
+            loadIndex()
 
             results = []
             seen_ids = set()
@@ -145,12 +152,7 @@ def main() -> None:
             index.save()
         
         case "tf":
-            try:
-                index.load()
-            
-            except FileNotFoundError:
-                print("Failed to load index")
-                sys.exit(1)
+            loadIndex()
 
             token = tokenizeTerm(args.term)
 
@@ -158,12 +160,7 @@ def main() -> None:
             print(result)
 
         case "idf":
-            try:
-                index.load()
-            
-            except:
-                print("Failed to load index")
-                sys.exit(1)
+            loadIndex()
             
             token = tokenizeTerm(args.term)
 
@@ -173,6 +170,22 @@ def main() -> None:
             idf = math.log((total_doc_count + 1) / (term_match_doc_count + 1))
 
             print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
+
+        case "tfidf":
+            loadIndex()
+
+            token = tokenizeTerm(args.term)
+
+            tf = index.get_tf(args.doc_id, token)
+
+            total_doc_count = len(index.docmap)
+            term_match_doc_count = len(index.get_documents(token))
+
+            idf = math.log((total_doc_count + 1) / (term_match_doc_count + 1))
+
+            tf_idf = tf * idf
+
+            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
 
         case _:
             parser.print_help()
