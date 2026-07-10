@@ -1,33 +1,75 @@
 import argparse
 import json
 import string
+import collections
+import pickle
+import os
+import sys
 
 from nltk.stem import PorterStemmer
 
 translator = str.maketrans("", "", string.punctuation)
 
+words = []
+
 def preprocessWords():
-    words = []
     with open("data/stopwords.txt", "r", encoding="utf-8") as f:
-        words = f.read().splitlines()
+        file = f.read().splitlines()
 
-    for i in range(len(words)):
-        words[i] = words[i].translate(translator)
-    
-    return words
+    for i in range(len(file)):
+        words.append(file[i].translate(translator))
 
-def createTokens(text, stopWords):
-    tokens = text.split(" ")
+preprocessWords()
 
-    tokens = [token for token in tokens if token.strip()]
-    tokens = [token for token in tokens if token not in stopWords]
-
+def createTokens(text):
     stemmer = PorterStemmer()
 
-    for i in range(len(tokens)):
-        tokens[i] = stemmer.stem(tokens[i])
+    text = text.lower().translate(translator)
 
-    return tokens
+    tokens = text.split()
+
+    tokens = [token for token in tokens if token not in words]
+
+    return [stemmer.stem(token) for token in tokens]
+
+def load_movies():
+    with open("data/movies.json", "r", encoding="utf-8") as file:
+        jsonFile = json.load(file)
+        return jsonFile["movies"]
+
+class InvertedIndex:
+    def __init__(self):
+        self.index = collections.defaultdict(set)
+        self.docmap = dict()
+    
+    def __add_document(self, doc_id, text):
+        tokens = createTokens(text)
+        for i in range(len(tokens)):
+            self.index[tokens[i]].add(doc_id)
+
+    def get_documents(self, term):
+        return sorted(list(self.index[term]))
+
+    def build(self):
+        movies = load_movies()
+        for m in movies:
+            self.docmap[m["id"]] = m
+            self.__add_document(m["id"], f"{m['title']} {m['description']}")
+
+    def save(self):
+        os.makedirs("cache", exist_ok=True)
+        with open("cache/index.pkl", "wb") as f:
+            pickle.dump(self.index, f)
+        with open("cache/docmap.pkl", "wb") as f:
+            pickle.dump(self.docmap, f)
+
+    def load(self):
+        with open("cache/index.pkl", "rb") as f:
+            self.index = pickle.load(f)
+        with open("cache/docmap.pkl", "rb") as f:
+            self.docmap = pickle.load(f)
+
+index = InvertedIndex()
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
@@ -36,40 +78,49 @@ def main() -> None:
     search_parser = subparsers.add_parser("search", help="Search movies using keywords")
     search_parser.add_argument("query", type=str, help="Search query")
 
+    build_parser = subparsers.add_parser("build", help="Build the inverted index")
+
     args = parser.parse_args()
 
     match args.command:
         case "search":
-             print(f'Searching for: {args.query}')
-             with open("data/movies.json", "r", encoding="utf-8") as file:
-                jsonFile = json.load(file)
-                movies = jsonFile["movies"]
+            print(f'Searching for: {args.query}')
+            try:
+                index.load()
+            
+            except FileNotFoundError:
+                print("Failed to load index")
+                sys.exit(1)
 
-                results = []
+            results = []
+            seen_ids = set()
 
-                stopWords = preprocessWords()
+            tokens = createTokens(args.query)
+            for token in tokens:
+                if len(results) == 5:
+                    break
+                documents = index.get_documents(token)
+                for doc_id in documents:
+                    if len(results) == 5:
+                        break
+                    if doc_id in seen_ids:
+                        continue
+                    seen_ids.add(doc_id)
+                    results.append(index.docmap[doc_id])
 
-                for i in range(len(movies)):
-                    if len(results) == 5: break
-                    movie = movies[i]
-                    query = createTokens(args.query.lower(), stopWords)
-                    title = createTokens(movie.get("title", "").translate(translator).lower(), stopWords)
+            for result in results:
+                print(f"{result['id']}. {result['title']}")
+        
+        case "build":
+            index.build()
+            index.save()
 
-                    found = False
-                    for queryToken in query:
-                        for titleToken in title:
-                            if found:
-                                break
-                            if queryToken in titleToken:
-                                found = True
-                                break
-                    if found:
-                        results.append(movie)
+            # docs = index.get_documents("merida")
+            # print(f"First document for token 'merida' = {docs[0]}")
 
-                for i in range(len(results)):
-                    print(f'{i+1}. {results[i]["title"]}')
         case _:
             parser.print_help()
+
 
 if __name__ == "__main__":
     main()
