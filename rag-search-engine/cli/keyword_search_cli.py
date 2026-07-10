@@ -6,6 +6,7 @@ import pickle
 import os
 import sys
 import collections
+import math
 
 from nltk.stem import PorterStemmer
 
@@ -105,6 +106,9 @@ def main() -> None:
     tf_parser.add_argument("doc_id", type=int, help="Document ID")
     tf_parser.add_argument("term", type=str, help="The search term")
 
+    idf_parser = subparsers.add_parser("idf", help="Inverse search term")
+    idf_parser.add_argument("term", type=str, help="The search term")
+
     args = parser.parse_args()
 
     match args.command:
@@ -152,6 +156,22 @@ def main() -> None:
 
             result = index.get_tf(args.doc_id, token)
             print(result)
+
+        case "idf":
+            try:
+                index.load()
+            
+            except:
+                print("Failed to load index")
+            
+            token = tokenizeTerm(args.term)
+
+            total_doc_count = len(index.docmap)
+            term_match_doc_count = len(index.get_documents(token))
+
+            idf = math.log((total_doc_count + 1) / (term_match_doc_count + 1))
+
+            print(f"Invers document frequency of '{args.term}': {idf:.2f}")
 
         case _:
             parser.print_help()
