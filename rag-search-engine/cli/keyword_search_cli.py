@@ -10,6 +10,8 @@ import math
 
 from nltk.stem import PorterStemmer
 
+BM25_K1 = 1.5
+
 translator = str.maketrans("", "", string.punctuation)
 
 words = []
@@ -74,6 +76,11 @@ class InvertedIndex:
 
         return math.log((total_documents - df + 0.5) / (df + 0.5) + 1)
 
+    def get_bm25_tf(self, doc_id, term, k1):
+        tf = self.get_tf(doc_id, term)
+        bm25_tf = tf * (k1 + 1) / (tf + k1)
+        return bm25_tf
+
     def build(self):
         movies = load_movies()
         for m in movies:
@@ -114,6 +121,12 @@ def bm25_idf_command(term):
     bm25_idf = index.get_bm25_idf(token)
     return float(bm25_idf)
 
+def bm25_tf_command(doc_id, term, k1=BM25_K1):
+    loadIndex()
+    token = tokenizeTerm(term)
+    bm25_tf = index.get_bm25_tf(doc_id, token, k1)
+    return float(bm25_tf)
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -136,6 +149,11 @@ def main() -> None:
 
     bm25_idf_parser = subparsers.add_parser("bm25idf", help="Get BM25 IDF score for a given term")
     bm25_idf_parser.add_argument("term", type=str, help="Term to get BM25 IDF score for")
+
+    bm25_tf_parser = subparsers.add_parser("bm25tf", help="Get BM25 TF score for a given document ID and term")
+    bm25_tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    bm25_tf_parser.add_argument("term", type=str, help="Term to get BM25 TF score for")
+    bm25_tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter")
 
     args = parser.parse_args()
 
@@ -206,6 +224,10 @@ def main() -> None:
         case "bm25idf":
             bm25_idf = bm25_idf_command(args.term)
             print(f"BM25 IDF score of '{args.term}': {bm25_idf:.2f}")
+
+        case "bm25tf":
+            bm25_tf = bm25_tf_command(args.doc_id, args.term, args.k1)
+            print(f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25_tf:.2f}")
 
         case _:
             parser.print_help()
