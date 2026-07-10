@@ -163,6 +163,7 @@ def main() -> None:
             
             except:
                 print("Failed to load index")
+                sys.exit(1)
             
             token = tokenizeTerm(args.term)
 
@@ -171,7 +172,7 @@ def main() -> None:
 
             idf = math.log((total_doc_count + 1) / (term_match_doc_count + 1))
 
-            print(f"Invers document frequency of '{args.term}': {idf:.2f}")
+            print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
 
         case _:
             parser.print_help()
