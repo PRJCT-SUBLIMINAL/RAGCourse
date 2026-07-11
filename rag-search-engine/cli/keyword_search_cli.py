@@ -65,6 +65,17 @@ class InvertedIndex:
             c[tokens[i]] += 1
         self.term_frequencies[doc_id] = c
 
+    def __get_avg_doc_length(self) -> float:
+        if len(self.doc_lengths) == 0:
+            return 0.0
+
+        total_of_lengths = 0
+        for doc_id in self.doc_lengths:
+            total_of_lengths += self.doc_lengths[doc_id]
+        avg_doc_length = total_of_lengths / len(self.doc_lengths)
+        
+        return float(avg_doc_length)
+
     def get_documents(self, term):
         return sorted(list(self.index[term]))
 
@@ -86,16 +97,21 @@ class InvertedIndex:
         bm25_tf = (tf * (k1 + 1)) / (tf + k1 * length_norm)
         return bm25_tf
 
-    def __get_avg_doc_length(self) -> float:
-        if len(self.doc_lengths) == 0:
-            return 0.0
+    def bm25(self, doc_id, term):
+        tf = self.get_bm25_tf(doc_id, term)
+        idf = self.get_bm25_idf(term)
+        return tf * idf
 
-        total_of_lengths = 0
-        for doc_id in self.doc_lengths:
-            total_of_lengths += self.doc_lengths[doc_id]
-        avg_doc_length = total_of_lengths / len(self.doc_lengths)
-        
-        return float(avg_doc_length)
+    def bm25_search(self, query, limit=5):
+        tokens = createTokens(query)
+        scores = dict()
+        for doc_id in self.docmap:
+            total = 0
+            for token in tokens:
+                total += self.bm25(doc_id, token)
+            scores[doc_id] = total
+        ranked_scores = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
+        return ranked_scores[:limit]
 
     def build(self):
         movies = load_movies()
@@ -176,6 +192,10 @@ def main() -> None:
     bm25_tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter")
     bm25_tf_parser.add_argument("b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter")
 
+    bm25search_parser = subparsers.add_parser("bm25search", help="Search movies using full BM25 scoring")
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+    bm25search_parser.add_argument("--limit", type=int, default=5, help="Limit the result to N amount")
+
     args = parser.parse_args()
 
     match args.command:
@@ -249,6 +269,17 @@ def main() -> None:
         case "bm25tf":
             bm25_tf = bm25_tf_command(args.doc_id, args.term, args.k1, args.b)
             print(f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25_tf:.2f}")
+
+        case "bm25search":
+            loadIndex()
+            count = 0
+            search_results = index.bm25_search(args.query, args.limit)
+            for result in search_results:
+                count += 1
+                doc_id = result[0]
+                doc_score = result[1]
+                doc_title = index.docmap[doc_id]["title"]
+                print(f"{count}. ({doc_id}) {doc_title} - Score: {doc_score:.2f}")
 
         case _:
             parser.print_help()
