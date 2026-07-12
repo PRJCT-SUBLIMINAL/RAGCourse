@@ -43,11 +43,6 @@ def tokenizeTerm(term):
         raise Exception("Term holds more than 1 token")
     return tokens[0]
 
-def load_movies():
-    with open("data/movies.json", "r", encoding="utf-8") as file:
-        jsonFile = json.load(file)
-        return jsonFile["movies"]
-
 class InvertedIndex:
     def __init__(self):
         self.index = collections.defaultdict(set)
