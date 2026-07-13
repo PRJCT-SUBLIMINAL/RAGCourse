@@ -4,6 +4,7 @@ import os
 import json
 import re
 from lib.keyword_search import load_movies
+from lib.search_utils import format_search_result
 
 class SemanticSearch:
     def __init__(self, model_name="all-MiniLM-L6-v2"):
@@ -29,6 +30,8 @@ class SemanticSearch:
             movie_list.append(f"{doc['title']}: {doc['description']}")
 
         self.embeddings = self.model.encode(movie_list)
+
+        os.makedirs("cache", exist_ok=True)
         np.save("cache/movie_embeddings.npy", self.embeddings)
 
         return self.embeddings
@@ -189,6 +192,7 @@ class ChunkedSemanticSearch(SemanticSearch):
         self.chunk_embeddings = self.model.encode(chunks)
         self.chunk_metadata = metas
 
+        os.makedirs("cache", exist_ok=True)
         np.save("cache/chunk_embeddings.npy", self.chunk_embeddings)
 
         with open("cache/chunk_metadata.json", "w") as f:
@@ -213,7 +217,45 @@ class ChunkedSemanticSearch(SemanticSearch):
         
         return self.build_chunk_embeddings(documents)
 
-    def 
+    def search_chunks(self, query: str, limit: int = 5):
+        embedding = self.generate_embedding(query)
+
+        chunk_scores = []
+
+        for i in range(len(self.chunk_embeddings)):
+            current_embedding = self.chunk_embeddings[i]
+
+            cs = cosine_similarity(current_embedding, embedding)
+            chunk_scores.append({"chunk_idx": i, "movie_idx": self.chunk_metadata[i]["movie_idx"], "score": cs})
+        
+        best_chunk_scores = dict()
+
+        for i in range(len(chunk_scores)):
+            chunk_score = chunk_scores[i]
+            score = chunk_score["score"]
+            movie_idx = chunk_score["movie_idx"]
+
+            if movie_idx in best_chunk_scores:
+                if score < best_chunk_scores[movie_idx]["score"]:
+                    continue
+
+            
+            
+            best_chunk_scores[movie_idx] = chunk_score
+
+        sorted_scores = sorted(best_chunk_scores.values(), key=lambda pair: pair["score"], reverse=True)
+
+        top_scores = sorted_scores[:limit]
+
+        results = []
+
+        for chunk_score in top_scores:
+            movie_idx = chunk_score["movie_idx"]
+            doc = self.documents[movie_idx]
+
+            results.append(format_search_result(doc["id"], doc["title"], doc["description"][:100], chunk_score["score"]))
+
+        return results
 
 def embed_chunks():
     movies = load_movies()
@@ -221,3 +263,18 @@ def embed_chunks():
     embeddings = css.load_or_create_chunk_embeddings(movies)
 
     print(f"Generated {len(embeddings)} chunked embeddings")
+
+    return css
+
+def search_chunked(query: str, limit: int = 5):
+    css = embed_chunks()
+    results = css.search_chunks(query, limit)
+
+    for result in results:
+        title = result["title"]
+        score = result["score"]
+        document = result["document"]
+
+        print(f"\n{result["id"]}. {title} (score: {score:.4f})")
+        print(f"    {document}...")
+    

@@ -9,6 +9,7 @@ import collections
 import math
 
 from nltk.stem import PorterStemmer
+from lib.keyword_search import load_movies
 
 BM25_K1 = 1.5
 BM25_B = 0.75
