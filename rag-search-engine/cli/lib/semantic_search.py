@@ -118,3 +118,17 @@ def semantic_search(query, limit=5):
     for i in range(len(results)):
         result = results[i]
         print(f"{i + 1}. {result["title"]} (score: {result["score"]:.4f})\n\t{result["description"]}")
+
+def chunk_text(text, chunk_size=200):
+    words = text.split(" ")
+
+    chunks = []
+
+    for i in range(0, len(words), chunk_size):
+        string = " ".join(words[i:i+chunk_size])
+        chunks.append(string)
+
+    print(f"Chunking {len(text)} characters")
+
+    for i in range(len(chunks)):
+        print(f"{i+1}. {chunks[i]}")
