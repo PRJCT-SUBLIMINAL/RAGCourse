@@ -119,13 +119,17 @@ def semantic_search(query, limit=5):
         result = results[i]
         print(f"{i + 1}. {result["title"]} (score: {result["score"]:.4f})\n\t{result["description"]}")
 
-def chunk_text(text, chunk_size=200):
+def chunk_text(text, chunk_size=200, overlap=0):
     words = text.split(" ")
 
     chunks = []
 
     for i in range(0, len(words), chunk_size):
-        string = " ".join(words[i:i+chunk_size])
+        string = ""
+        if overlap > 0 and i > 0:
+            string = " ".join(words[i - overlap : i + chunk_size])
+        else:
+            string = " ".join(words[i : i + chunk_size])
         chunks.append(string)
 
     print(f"Chunking {len(text)} characters")
