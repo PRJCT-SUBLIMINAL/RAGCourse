@@ -2,6 +2,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
 import json
+import re
 from lib.keyword_search import load_movies
 
 class SemanticSearch:
@@ -133,6 +134,22 @@ def chunk_text(text, chunk_size=200, overlap=0):
         chunks.append(string)
 
     print(f"Chunking {len(text)} characters")
+
+    for i in range(len(chunks)):
+        print(f"{i+1}. {chunks[i]}")
+
+def semantic_chunk_text(text, max_chunk_size=4, overlap=0):
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+
+    chunks = []
+    
+    for i in range(0, len(sentences), max_chunk_size):
+        if overlap > 0 and i > 0:
+            chunks.append(" ".join(sentences[i - overlap : i + max_chunk_size]))
+        else:
+            chunks.append(" ".join(sentences[i: i + max_chunk_size]))
+
+    print(f"Semantically chunking {len(text)} characters")
 
     for i in range(len(chunks)):
         print(f"{i+1}. {chunks[i]}")
