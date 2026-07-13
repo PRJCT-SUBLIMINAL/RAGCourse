@@ -213,6 +213,8 @@ class ChunkedSemanticSearch(SemanticSearch):
         
         return self.build_chunk_embeddings(documents)
 
+    def 
+
 def embed_chunks():
     movies = load_movies()
     css = ChunkedSemanticSearch()
