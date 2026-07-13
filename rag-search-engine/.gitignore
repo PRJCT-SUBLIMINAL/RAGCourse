@@ -1,2 +1,7 @@
+<<<<<<< HEAD
 /data/*
 /cache/*
+=======
+/data/
+/cache/
+>>>>>>> 8d790d0 (Update .gitignore)
