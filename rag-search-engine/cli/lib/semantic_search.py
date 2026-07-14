@@ -142,9 +142,18 @@ def chunk_text(text, chunk_size=200, overlap=0):
         print(f"{i+1}. {chunks[i]}")
 
 def semantic_chunk_text(text, max_chunk_size=4, overlap=0):
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+    stripped_text = text.strip()
+    if stripped_text == "":
+        return []
+
+    sentences = re.split(r"(?<=[.!?])\s+", stripped_text)
+
+    if len(sentences) == 1 and not sentences[0].endswith((".", "?", "!")):
+        return stripped_text
 
     chunks = []
+
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
     
     for i in range(0, len(sentences), max_chunk_size - overlap):
         chunks.append(" ".join(sentences[i : i + max_chunk_size]))
@@ -153,8 +162,8 @@ def semantic_chunk_text(text, max_chunk_size=4, overlap=0):
 
     print(f"Semantically chunking {len(text)} characters")
 
-    # for i in range(len(chunks)):
-    #     print(f"{i+1}. {chunks[i]}")
+    for i in range(len(chunks)):
+        print(f"{i+1}. {chunks[i]}")
 
     return chunks
 
