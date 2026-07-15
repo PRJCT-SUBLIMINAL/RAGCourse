@@ -162,8 +162,8 @@ def semantic_chunk_text(text, max_chunk_size=4, overlap=0):
 
     print(f"Semantically chunking {len(text)} characters")
 
-    for i in range(len(chunks)):
-        print(f"{i+1}. {chunks[i]}")
+    # for i in range(len(chunks)):
+    #     print(f"{i+1}. {chunks[i]}")
 
     return chunks
 
