@@ -1,6 +1,9 @@
 import os
+import time
 from dotenv import load_dotenv
 from openai import OpenAI
+
+SLEEP_SECONDS = 3
 
 load_dotenv()
 api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -92,3 +95,48 @@ def enhance_query(query: str, enhance: str) -> str:
             raise ValueError("Wrong/No enhance method provided")
 
     return enhanced_query
+
+def rerank_results(query, results, rerank_method):
+    new_results = []
+
+    match rerank_method:
+        
+        case "individual":
+            for i in range(len(results)):
+                try:
+                    result = rerank_result(query, results[i])
+                except:
+                    continue
+                new_results.append(result)
+                time.sleep(SLEEP_SECONDS)
+
+        case _:
+            raise ValueError("No rerank_method provided")
+    
+    return sorted(new_results, key=lambda result: result["rerank_score"], reverse=True)
+
+def rerank_result(query, result, max_attempts=3):
+    if max_attempts <= 0:
+        raise ValueError("The LLM is having a bad day, try again some other time.")
+
+    rerank_score = perform_prompt(f"""Rate how well this movie matches the search query.
+
+        Query: "{query}"
+        Movie: {result.get("title", "")} - {result.get("document", "")}
+        
+        Consider:
+        - Direct relevance to query
+        - User intent (what they're looking for)
+        - Content appropriateness
+
+        Rate 0-10 (10 = perfect match).
+        Output ONLY the number in your response, no other text or explanation.
+        
+        Score:
+        """)
+    try:
+        result["rerank_score"] = float(rerank_score)
+    except:
+        max_attempts -= 1
+        return rerank_result(query, result, max_attempts)
+    return result
