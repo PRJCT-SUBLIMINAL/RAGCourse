@@ -92,6 +92,7 @@ class HybridSearch:
             doc_id = result["id"]
             if doc_id not in combined_ranks:
                 combined_ranks[doc_id] = {
+                    "id": result["id"],
                     "title": result["title"],
                     "document": result["document"],
                     "rrf_score": 0.0,
@@ -125,7 +126,8 @@ class HybridSearch:
         sorted_combined_ranks_list = sorted(combined_ranks_list, key=lambda result: result["rrf_score"], reverse=True)
 
         if rerank_method is not None:
-            return rerank_results(query, sorted_combined_ranks_list[:limit * 5], rerank_method)
+            reranked_results = rerank_results(query, sorted_combined_ranks_list[:limit * 5], rerank_method)
+            return reranked_results[:limit]
 
         return sorted_combined_ranks_list[:limit]
 
@@ -180,6 +182,16 @@ def rrf_search(query, k: int = 60, limit: int = 5, enhance=None, rerank_method=N
                 print(f"  RRF Score: {result["rrf_score"]:.3f}")
                 print(f"  BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
                 print(f"  {result["document"]}...")
+
+        case "batch":
+            for i in range(len(results)):
+                result = results[i]
+                print(f"{i+1}. {result["title"]}")
+                print(f"  Re-rank Rank: {result["rerank_rank"]}")
+                print(f"  RRF Score: {result["rrf_score"]:.3f}")
+                print(f"  BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
+                print(f"  {result["document"]}...")
+
         case _:
             for i in range(len(results)):
                 result = results[i]

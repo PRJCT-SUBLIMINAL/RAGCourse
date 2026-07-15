@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -97,11 +98,10 @@ def enhance_query(query: str, enhance: str) -> str:
     return enhanced_query
 
 def rerank_results(query, results, rerank_method):
-    new_results = []
-
     match rerank_method:
         
         case "individual":
+            new_results = []
             for i in range(len(results)):
                 try:
                     result = rerank_result(query, results[i])
@@ -110,10 +110,14 @@ def rerank_results(query, results, rerank_method):
                 new_results.append(result)
                 time.sleep(SLEEP_SECONDS)
 
+            return sorted(new_results, key=lambda result: result["rerank_score"], reverse=True)
+
+        case "batch":
+            batched_results = sorted(rerank_results_batch(query, results), key=lambda result: result["rerank_rank"])
+            return batched_results
+
         case _:
-            raise ValueError("No rerank_method provided")
-    
-    return sorted(new_results, key=lambda result: result["rerank_score"], reverse=True)
+            raise ValueError("No rerank method provided")
 
 def rerank_result(query, result, max_attempts=3):
     if max_attempts <= 0:
@@ -140,3 +144,49 @@ def rerank_result(query, result, max_attempts=3):
         max_attempts -= 1
         return rerank_result(query, result, max_attempts)
     return result
+
+def rerank_results_batch(query, results, max_attempts=3):
+    if max_attempts <= 0:
+        raise ValueError("The LLM is having a bad day again or rate limit exceeded. Try again some other time.")
+
+    movies = []
+    id_to_result = dict()
+
+    for i in range(len(results)):
+        result = results[i]
+        movies.append(f"ID: {result['id']} Movie Description: {result['document']}")
+
+    reranked_results = perform_prompt(f"""Rank the movies listed below by relevance to the following search query.
+        
+        Query: "{query}"
+
+        Movies:
+        {"\n".join(movies)}
+
+        Return the movie IDs in order of relevance, best match first.
+
+        Your response must be a raw JSON array of integers.
+        Do not wrap the JSON in Markdown. Do not use a ```json code block.
+        Do not include any explanatory text.
+
+        For example:
+        [75, 12, 34, 2, 1]
+
+        Ranking:
+        """)
+
+    try:
+        reranked_results_json = json.loads(reranked_results)
+
+    except:
+        max_attempts -= 1
+        return rerank_results_batch(query, results, max_attempts)
+
+    for result in results:
+        id_to_result[result["id"]] = result
+
+    for i in range(len(reranked_results_json)):
+        doc_id = reranked_results_json[i]
+        id_to_result[doc_id]["rerank_rank"] = i + 1
+        
+    return results
