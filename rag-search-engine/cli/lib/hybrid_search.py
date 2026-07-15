@@ -192,6 +192,18 @@ def rrf_search(query, k: int = 60, limit: int = 5, enhance=None, rerank_method=N
                 print(f"  BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
                 print(f"  {result["document"]}...")
 
+        case "cross_encoder":
+            print(f"Re-ranking top {limit} results using cross_encoder method...")
+            print(f"Reciprocal Rank Fusion Results for '{query}' (k={k}):\n")
+
+            for i in range(len(results)):
+                result = results[i]
+                print(f"{i+1}. {result['title']}")
+                print(f"  Cross Encoder Score: {result['cross_encoder_score']:.3f}")
+                print(f"  RRF Score: {result['rrf_score']:.3f}")
+                print(f"  BM25 Rank: {result['bm25_rank']}")
+                print(f"  {result['document']}...")
+
         case _:
             for i in range(len(results)):
                 result = results[i]
