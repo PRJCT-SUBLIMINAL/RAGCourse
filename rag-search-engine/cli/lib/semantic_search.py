@@ -286,4 +286,3 @@ def search_chunked(query: str, limit: int = 5):
 
         print(f"\n{result["id"]}. {title} (score: {score:.4f})")
         print(f"    {document}...")
-    
