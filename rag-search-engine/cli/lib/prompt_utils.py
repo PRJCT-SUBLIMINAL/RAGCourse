@@ -51,7 +51,6 @@ def enhance_query(query: str, enhance: str) -> str:
 
                 User query: "{query}"
                 """)
-            return enhanced_query
 
         case "rewrite":
             enhanced_query = perform_prompt(f"""Rewrite the user-provided movie search query below to be more specific and searchable.
@@ -73,8 +72,23 @@ def enhance_query(query: str, enhance: str) -> str:
 
                 User query: "{query}"
                 """)
-            return enhanced_query
+
+        case "expand":
+            enhanced_query = perform_prompt(f"""Expand the user-provided movie search query below with related terms.
+                
+                Add synonyms and related concepts that might appear in movie descriptions.
+                Keep expansions relevant and focused.
+                Output only the additional terms; they will be appended to the original query.
+
+                Examples:
+                - "scary bear movie" -> "scary horror grizzly bear movie terrifying film"
+                - "action movie with bear" -> "action thriller bear chase fight adventure"
+                - "comedy with bear" -> "comedy funny bear humor lighthearted"
+
+                User query: "{query}"
+                """)
 
         case _:
             raise ValueError("Wrong/No enhance method provided")
-    
+
+    return enhanced_query
