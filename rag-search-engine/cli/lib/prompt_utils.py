@@ -3,6 +3,7 @@ import time
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
+from sentence_transformers import CrossEncoder
 
 SLEEP_SECONDS = 3
 
@@ -116,6 +117,10 @@ def rerank_results(query, results, rerank_method):
             batched_results = sorted(rerank_results_batch(query, results), key=lambda result: result["rerank_rank"])
             return batched_results
 
+        case "cross_encoder":
+            cross_encoded_results = cross_encode(query, results)
+            return cross_encoded_results
+
         case _:
             raise ValueError("No rerank method provided")
 
@@ -190,3 +195,19 @@ def rerank_results_batch(query, results, max_attempts=3):
         id_to_result[doc_id]["rerank_rank"] = i + 1
         
     return results
+
+def cross_encode(query, results):
+    pairs = []
+
+    for i in range(len(results)):
+        result = results[i]
+        pairs.append([query, f"{result.get('title', '')} - {result.get('document', '')}"])
+
+    cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2", device="cpu")
+    scores = cross_encoder.predict(pairs)
+
+    for i in range(len(scores)):
+        score = scores[i]
+        results[i]["cross_encoder_score"] = score
+
+    return sorted(results, key=lambda result: result["cross_encoder_score"], reverse=True)
