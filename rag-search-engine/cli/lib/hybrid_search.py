@@ -3,7 +3,7 @@ import os
 from .keyword_search import InvertedIndex, load_movies
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import format_search_result
-from .prompt_utils import enhance_query
+from .prompt_utils import enhance_query, rerank_results
 
 class HybridSearch:
     def __init__(self, documents: list[dict]) -> None:
@@ -78,7 +78,7 @@ class HybridSearch:
 
         return sorted_combined_scores_list[:limit]
 
-    def rrf_search(self, query: str, k: int = 60, limit: int = 5, enhance=None) -> list[dict]:
+    def rrf_search(self, query: str, k: int = 60, limit: int = 5, enhance=None, rerank_method=None) -> list[dict]:
         if enhance is not None: 
             enhanced_query = enhance_query(query, enhance)
             print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
@@ -124,6 +124,9 @@ class HybridSearch:
 
         sorted_combined_ranks_list = sorted(combined_ranks_list, key=lambda result: result["rrf_score"], reverse=True)
 
+        if rerank_method is not None:
+            return rerank_results(query, sorted_combined_ranks_list[:limit * 5], rerank_method)
+
         return sorted_combined_ranks_list[:limit]
 
 
@@ -162,15 +165,25 @@ def weighted_search(query, alpha: float = 0.5, limit: int = 5) -> list:
 def rrf_score(rank: int, k: int = 60) -> float:
     return 1 / (k + rank)
 
-def rrf_search(query, k: int = 60, limit: int = 5, enhance=""):
+def rrf_search(query, k: int = 60, limit: int = 5, enhance=None, rerank_method=None):
     movies = load_movies()
     hs = HybridSearch(movies)
 
-    results = hs.rrf_search(query, k, limit, enhance)
+    results = hs.rrf_search(query, k, limit, enhance, rerank_method)
 
-    for i in range(len(results)):
-        result = results[i]
-        print(f"{i+1}. {result["title"]}")
-        print(f"  RRF Score: {result["rrf_score"]:.3f}")
-        print(f"  BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
-        print(f"  {result["document"]}...")
+    match rerank_method:
+        case "individual":
+            for i in range(len(results)):
+                result = results[i]
+                print(f"{i+1}. {result["title"]}")
+                print(f"  Re-rank Score: {result["rerank_score"]:.3f}/10")
+                print(f"  RRF Score: {result["rrf_score"]:.3f}")
+                print(f"  BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
+                print(f"  {result["document"]}...")
+        case _:
+            for i in range(len(results)):
+                result = results[i]
+                print(f"{i+1}. {result["title"]}")
+                print(f"  RRF Score: {result["rrf_score"]:.3f}")
+                print(f"  BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
+                print(f"  {result["document"]}...")
