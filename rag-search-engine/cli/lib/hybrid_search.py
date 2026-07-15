@@ -3,7 +3,7 @@ import os
 from .keyword_search import InvertedIndex, load_movies
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import format_search_result
-from .prompt_utils import perform_prompt
+from .prompt_utils import enhance_query
 
 class HybridSearch:
     def __init__(self, documents: list[dict]) -> None:
@@ -79,16 +79,9 @@ class HybridSearch:
         return sorted_combined_scores_list[:limit]
 
     def rrf_search(self, query: str, k: int = 60, limit: int = 5, enhance=None) -> list[dict]:
-        if enhance is not None and enhance == "spell":
-            enhanced_query = perform_prompt(f"""Fix any spelling error in the user-provided movie search query below.
-            Correct only clear, high-confidence typos. Do not rewrite, add, remove, or reorder words.
-            Preserve punctuation and capitalization unless a change is require for the typo fix.
-            If there are no spelling errors, or if you're unsure, output the original query unchanged.
-            Output only the final query text, nothing else.
-            User query: "{query}"
-            """)
+        if enhance is not None: 
+            enhanced_query = enhance_query(query, enhance)
             print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
-            query = enhanced_query
 
         bm25_results = self._bm25_search(query, limit * 500)
         semantic_chunk_results = self.semantic_search.search_chunks(query, limit * 500)
